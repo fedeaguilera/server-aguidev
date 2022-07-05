@@ -1,0 +1,71 @@
+version: '3.7'
+
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs:ro
+      - vhostd:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    labels:
+      - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    restart: always
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+    volumes:
+      - certs:/etc/nginx/certs:rw
+      - vhostd:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  www:
+    image: aguidev/website:v1.2
+    restart: always
+    environment:
+      - VIRTUAL_PORT=3000
+      - VIRTUAL_HOST=aguidev.com.ar,www.aguidev.com.ar
+      - LETSENCRYPT_HOST=aguidev.com.ar,www.aguidev.com.ar
+      - LETSENCRYPT_EMAIL=aguilera.fede19@gmail.com
+    depends_on:
+      - nginx-proxy
+      - letsencrypt
+
+  mail:
+    image: analogic/poste.io
+    ports:
+      - "25:25"
+      - "110:110"
+      - "143:143"
+      - "465:465"
+      - "587:587"
+      - "993:993"
+      - "995:995"
+    volumes:
+      - ./mail_aguidev:/data
+    restart: always
+    depends_on:
+      - nginx-proxy
+      - letsencrypt
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+      - VIRTUAL_HOST=mail.aguidev.com.ar
+      - VIRTUAL_PORT=80 #webmail
+      - LETSENCRYPT_HOST=mail.aguidev.com.ar
+      - LETSENCRYPT_EMAIL=aguilera.fede19@gmail.com
+      - HTTPS=OFF
+      - DISABLE_CLAMAV=TRUE
+
+volumes:
+  certs:
+  html:
+  vhostd:
+
+
